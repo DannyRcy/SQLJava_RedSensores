@@ -1,0 +1,184 @@
+USE master
+GO
+
+-- Crear la base de datos si no existe
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'dbSimade')
+BEGIN
+    CREATE DATABASE dbSimade;
+END
+GO
+
+USE dbSimade
+GO
+
+-- TABLAS DIMENSIONALES
+CREATE TABLE DIM_Tipo_Usuario (
+    IDTipoUsuario INT IDENTITY(1,1) PRIMARY KEY,
+    tipDescripcion VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE DIM_Usuario (
+    IDUsuario INT IDENTITY(1,1) PRIMARY KEY,
+    usuNombres VARCHAR(100) NOT NULL,
+    usuApellidos VARCHAR(100) NOT NULL,
+    IDTipoUsuario INT NOT NULL,
+    FOREIGN KEY (IDTipoUsuario) REFERENCES DIM_Tipo_Usuario(IDTipoUsuario)
+);
+
+CREATE TABLE DIM_Estacion (
+    IDEstacion INT IDENTITY(1,1) PRIMARY KEY,
+    estNombre VARCHAR(100) NOT NULL,
+    estUbicacion VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE DIM_Sensor (
+    IDSensor INT IDENTITY(1,1) PRIMARY KEY,
+    senNombre VARCHAR(100) NOT NULL,
+    senTipo VARCHAR(50) NOT NULL,
+    senUbicacion VARCHAR(100) NOT NULL,
+    senEstado VARCHAR(50) NOT NULL CHECK (senEstado IN ('Activo', 'Inactivo')),
+    IDEstacion INT NOT NULL,
+    FOREIGN KEY (IDEstacion) REFERENCES DIM_Estacion(IDEstacion)
+);
+
+CREATE TABLE DIM_Red_Sensores (
+    IDRed INT IDENTITY(1,1) PRIMARY KEY,
+    redNombre VARCHAR(100) NOT NULL,
+    redDescripcion VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE DIM_Estacion_Red (
+    IDEstacion INT NOT NULL,
+    IDRed INT NOT NULL,
+    PRIMARY KEY (IDEstacion, IDRed),
+    FOREIGN KEY (IDEstacion) REFERENCES DIM_Estacion(IDEstacion),
+    FOREIGN KEY (IDRed) REFERENCES DIM_Red_Sensores(IDRed)
+);
+
+CREATE TABLE DIM_Alerta (
+    IDAlerta INT IDENTITY(1,1) PRIMARY KEY,
+    aleNivel VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE DIM_Pronostico (
+    IDPronostico INT IDENTITY(1,1) PRIMARY KEY,
+    proDescripcion VARCHAR(255) NOT NULL
+);
+
+-- TABLA DE HECHOS
+CREATE TABLE Hechos_Medicion (
+    IDMedicion INT IDENTITY(1,1) PRIMARY KEY,
+    IDSensor INT NOT NULL,
+    IDUsuario INT NOT NULL,
+    IDAlerta INT NOT NULL,
+    IDPronostico INT NOT NULL,
+    medFecha DATETIME NOT NULL,
+    medHumedad FLOAT NULL,
+    medTemperatura FLOAT NULL,
+    medSismo FLOAT NULL,
+    medPresionAtm FLOAT NULL,
+    FOREIGN KEY (IDSensor) REFERENCES DIM_Sensor(IDSensor),
+    FOREIGN KEY (IDUsuario) REFERENCES DIM_Usuario(IDUsuario),
+    FOREIGN KEY (IDAlerta) REFERENCES DIM_Alerta(IDAlerta),
+    FOREIGN KEY (IDPronostico) REFERENCES DIM_Pronostico(IDPronostico)
+);
+-- Establecer formato de fecha para evitar errores
+SET DATEFORMAT YMD;
+
+-- INSERTAR DATOS
+INSERT INTO DIM_Tipo_Usuario (tipDescripcion) VALUES 
+('Usuario Logeado'), 
+('Usuario No Logeado');
+
+INSERT INTO DIM_Estacion (estNombre, estUbicacion) VALUES 
+('Estacion Continental', 'Av San Carlos');
+
+INSERT INTO DIM_Sensor (senNombre, senTipo, senUbicacion, senEstado, IDEstacion) VALUES 
+('Sensor Huancayo, 'Clasico', 'Peru', 'Activo', 1),
+('Sensor Piura, 'Moderno', 'Peru', 'Inactivo', 1),
+('Sensor Lima, 'Avanzado', 'Peru', 'Inactivo', 1);
+
+INSERT INTO DIM_Usuario (usuNombres, usuApellidos, IDTipoUsuario) VALUES 
+('Juan', 'Perez', 1),
+('Maria', 'Lopez', 2),
+('Carlos', 'Gomez', 1);
+
+INSERT INTO DIM_Alerta (aleNivel) VALUES 
+('Critico'),
+('Muy Alto'),
+('Alto'),
+('Moderado'), 
+('Bajo');
+
+INSERT INTO DIM_Pronostico (proDescripcion) VALUES 
+('Lluvias intensas en la zona'),
+('Nevadas Extremas en la sierra'),
+('Calor extremo en la costa'),
+('Posible actividad sísmica leve'),
+('Actividad sísmica fuerte');
+
+-- Insertar mediciones
+INSERT INTO Hechos_Medicion (IDSensor, IDUsuario, IDAlerta, IDPronostico, medFecha, medHumedad, medTemperatura, medSismo, medPresionAtm) 
+VALUES 
+(1, 1, 1, 1, '2025-01-20', 80, 25, 3.2, 1013),
+(2, 2, 2, 2, '2025-01-21', 78, 27, 3.5, 1010),
+(3, 3, 3, 3, '2025-01-22', 85, 24, 4.0, 1011);
+
+
+-- PROCEDIMIENTOS ALMACENADOS
+GO
+CREATE PROCEDURE sp_InsertarUsuario
+    @usuNombres VARCHAR(100),
+    @usuApellidos VARCHAR(100),
+    @IDTipoUsuario INT,
+    @NuevoIDUsuario INT OUTPUT
+AS
+BEGIN
+    INSERT INTO DIM_Usuario (usuNombres, usuApellidos, IDTipoUsuario) 
+    VALUES (@usuNombres, @usuApellidos, @IDTipoUsuario);
+
+    -- Obtener el ID del usuario recién insertado
+    SET @NuevoIDUsuario = SCOPE_IDENTITY();
+END;
+GO
+
+CREATE PROCEDURE sp_InsertarMedicion
+    @IDSensor INT,
+    @IDUsuario INT,
+    @IDAlerta INT,
+    @IDPronostico INT,
+    @medFecha DATETIME,
+    @medHumedad FLOAT,
+    @medTemperatura FLOAT,
+    @medSismo FLOAT,
+    @medPresionAtm FLOAT,
+    @NuevoIDMedicion INT OUTPUT
+AS
+BEGIN
+    INSERT INTO Hechos_Medicion (IDSensor, IDUsuario, IDAlerta, IDPronostico, medFecha, medHumedad, medTemperatura, medSismo, medPresionAtm) 
+    VALUES (@IDSensor, @IDUsuario, @IDAlerta, @IDPronostico, @medFecha, @medHumedad, @medTemperatura, @medSismo, @medPresionAtm);
+
+    -- Obtener el ID de la medición recién insertada
+    SET @NuevoIDMedicion = SCOPE_IDENTITY();
+END;
+GO
+CREATE PROCEDURE sp_AsignarPronostico
+    @IDMedicion INT,
+    @IDPronostico INT
+AS
+BEGIN
+    UPDATE Hechos_Medicion
+    SET IDPronostico = @IDPronostico
+    WHERE IDMedicion = @IDMedicion;
+END;
+GO
+CREATE PROCEDURE sp_AsignarAlerta
+    @IDMedicion INT,
+    @IDAlerta INT
+AS
+BEGIN
+    UPDATE Hechos_Medicion
+    SET IDAlerta = @IDAlerta
+    WHERE IDMedicion = @IDMedicion;
+END;
+GO
