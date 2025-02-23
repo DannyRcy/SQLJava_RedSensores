@@ -94,9 +94,9 @@ INSERT INTO DIM_Estacion (estNombre, estUbicacion) VALUES
 ('Estacion Continental', 'Av San Carlos');
 
 INSERT INTO DIM_Sensor (senNombre, senTipo, senUbicacion, senEstado, IDEstacion) VALUES 
-('Sensor Huancayo, 'Clasico', 'Peru', 'Activo', 1),
-('Sensor Piura, 'Moderno', 'Peru', 'Inactivo', 1),
-('Sensor Lima, 'Avanzado', 'Peru', 'Inactivo', 1);
+('Sensor Huancayo', 'Clasico', 'Peru', 'Activo', 1),
+('Sensor Piura', 'Moderno', 'Peru', 'Inactivo', 1),
+('Sensor Lima', 'Avanzado', 'Peru', 'Inactivo', 1);
 
 INSERT INTO DIM_Usuario (usuNombres, usuApellidos, IDTipoUsuario) VALUES 
 ('Juan', 'Perez', 1),
